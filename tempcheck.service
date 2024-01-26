@@ -1,0 +1,4 @@
+[Unit]
+Description=Check temperature and notify
+[Service]
+ExecStart=/root/alertemp.sh
