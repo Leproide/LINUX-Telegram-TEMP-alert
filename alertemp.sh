@@ -20,6 +20,9 @@ sensors | grep "Package id 0:" | while read -r line; do
         fi
     else
         if [ -f "$alert_file" ]; then
+            # Send a message when temperature goes below the threshold
+            message="Temperature has returned below the alert threshold on $(hostname)."
+            curl -s -d "chat_id=$telegramchatid&text=$message&parse_mode=markdown&disable_web_page_preview=1" "$url" > /dev/null 2>&1
             rm "$alert_file"  # Remove the alert file if temperature is below threshold
         fi
     fi
