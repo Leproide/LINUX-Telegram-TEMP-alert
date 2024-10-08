@@ -10,3 +10,6 @@ A simple temperature alert script for proxmox/linux on Telegram
 4. Copy tempcheck.service in /etc/systemd/system/ folder
 5. Copy /tempcheck.timer in /etc/systemd/system/ folder
 6. Execute systemctl enable --now tempcheck.timer
+
+Check that the script can write to temp.
+if it cannot, it won't be able to create the temporary file.
