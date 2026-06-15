@@ -1,0 +1,8 @@
+[Unit]
+Description=Check temperature every 5 second
+[Timer]
+OnBootSec=5
+OnUnitActiveSec=5
+AccuracySec=1ms
+[Install]
+WantedBy=timers.target
