@@ -2,13 +2,13 @@
 Description=Run temperature check periodically
 
 [Timer]
-# Primo avvio 30s dopo il boot, poi ogni 30s.
+# First run 30s after boot, then every 30s.
 OnBootSec=30
 OnUnitActiveSec=30
-# Niente AccuracySec=1ms: lasciare a systemd un minimo di margine evita
-# wakeup continui della CPU. 5s di tolleranza vanno benissimo per un alert.
+# No AccuracySec=1ms: giving systemd some margin avoids constant CPU
+# wakeups. 5s of tolerance is perfectly fine for an alert.
 AccuracySec=5s
-# Recupera un'esecuzione persa se il sistema era spento/sospeso.
+# Recover a missed run if the system was powered off/suspended.
 Persistent=true
 
 [Install]

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#    install.sh - Installer per LINUX-Telegram-TEMP-alert
+#    install.sh - Installer for LINUX-Telegram-TEMP-alert
 #    Author: https://github.com/Leproide
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -19,16 +19,16 @@
 set -euo pipefail
 
 # -------------------------------------------------------------------------------
-# Parametri (override da ambiente: es. RUN_USER=monitor ./install.sh)
+# Parameters (override from environment: e.g. RUN_USER=monitor ./install.sh)
 # -------------------------------------------------------------------------------
-RUN_USER="${RUN_USER:-root}"                 # utente che eseguira' il servizio
-SCRIPT_SRC="${SCRIPT_SRC:-./alertemp.sh}"    # sorgente dello script
+RUN_USER="${RUN_USER:-root}"                 # user that will run the service
+SCRIPT_SRC="${SCRIPT_SRC:-./alertemp.sh}"    # script source
 SERVICE_SRC="${SERVICE_SRC:-./tempcheck.service}"
 TIMER_SRC="${TIMER_SRC:-./tempcheck.timer}"
-ENV_FILE="${ENV_FILE:-/etc/alertemp.env}"    # file credenziali
+ENV_FILE="${ENV_FILE:-/etc/alertemp.env}"    # credentials file
 SYSTEMD_DIR="/etc/systemd/system"
 
-# Dir di installazione dello script: /root per root, altrimenti /usr/local/bin
+# Install dir of the script: /root for root, otherwise /usr/local/bin
 if [ "$RUN_USER" = "root" ]; then
     SCRIPT_DEST="${SCRIPT_DEST:-/root/alertemp.sh}"
 else
@@ -36,7 +36,7 @@ else
 fi
 
 # -------------------------------------------------------------------------------
-# Helper
+# Helpers
 # -------------------------------------------------------------------------------
 info() { echo -e "\e[1;34m[*]\e[0m $*"; }
 ok()   { echo -e "\e[1;32m[+]\e[0m $*"; }
@@ -44,105 +44,105 @@ warn() { echo -e "\e[1;33m[!]\e[0m $*"; }
 die()  { echo -e "\e[1;31m[x]\e[0m $*" >&2; exit 1; }
 
 # -------------------------------------------------------------------------------
-# Controlli preliminari
+# Preliminary checks
 # -------------------------------------------------------------------------------
-[ "$(id -u)" -eq 0 ] || die "Esegui l'installer come root (sudo ./install.sh)"
+[ "$(id -u)" -eq 0 ] || die "Run the installer as root (sudo ./install.sh)"
 
-# systemd presente?
-command -v systemctl >/dev/null 2>&1 || die "systemd non trovato: questo installer richiede systemd"
+# systemd present?
+command -v systemctl >/dev/null 2>&1 || die "systemd not found: this installer requires systemd"
 
-# File sorgente presenti?
+# Source files present?
 for f in "$SCRIPT_SRC" "$SERVICE_SRC" "$TIMER_SRC"; do
-    [ -f "$f" ] || die "File sorgente mancante: $f (lancia l'installer dalla cartella del repo)"
+    [ -f "$f" ] || die "Missing source file: $f (run the installer from the repo folder)"
 done
 
-# L'utente scelto esiste?
+# Does the chosen user exist?
 if ! id "$RUN_USER" >/dev/null 2>&1; then
-    die "L'utente '$RUN_USER' non esiste. Crealo prima, oppure usa RUN_USER=root"
+    die "User '$RUN_USER' does not exist. Create it first, or use RUN_USER=root"
 fi
 
-# Dipendenze runtime: lm-sensors e curl
-info "Verifico le dipendenze (sensors, curl)..."
+# Runtime dependencies: lm-sensors and curl
+info "Checking dependencies (sensors, curl)..."
 MISSING=()
 command -v sensors >/dev/null 2>&1 || MISSING+=("lm-sensors")
 command -v curl    >/dev/null 2>&1 || MISSING+=("curl")
 
 if [ "${#MISSING[@]}" -gt 0 ]; then
-    warn "Mancano: ${MISSING[*]}"
+    warn "Missing: ${MISSING[*]}"
     if command -v apt-get >/dev/null 2>&1; then
-        info "Installo con apt-get..."
+        info "Installing with apt-get..."
         apt-get update -qq && apt-get install -y "${MISSING[@]}"
     elif command -v dnf >/dev/null 2>&1; then
-        info "Installo con dnf..."
-        # su Fedora il pacchetto e' lm_sensors
+        info "Installing with dnf..."
+        # on Fedora the package is lm_sensors
         dnf install -y "${MISSING[@]/lm-sensors/lm_sensors}"
     else
-        die "Gestore pacchetti non riconosciuto: installa manualmente ${MISSING[*]}"
+        die "Unrecognized package manager: install manually ${MISSING[*]}"
     fi
 else
-    ok "Dipendenze gia' presenti."
+    ok "Dependencies already present."
 fi
 
-# 'sensors' restituisce qualcosa?
+# Does 'sensors' return anything?
 if ! sensors 2>/dev/null | grep -q "Package id 0:"; then
-    warn "'sensors' non mostra 'Package id 0:'. Potresti dover lanciare: sensors-detect"
-    warn "Oppure adatta SENSOR_LABEL nello script al tuo output."
+    warn "'sensors' does not show 'Package id 0:'. You may need to run: sensors-detect"
+    warn "Or adjust SENSOR_LABEL in the script to match your output."
 fi
 
 # -------------------------------------------------------------------------------
-# Installazione script
+# Script installation
 # -------------------------------------------------------------------------------
-info "Installo lo script in $SCRIPT_DEST ..."
+info "Installing the script to $SCRIPT_DEST ..."
 install -m 0755 "$SCRIPT_SRC" "$SCRIPT_DEST"
-ok "Script installato."
+ok "Script installed."
 
 # -------------------------------------------------------------------------------
-# File credenziali
+# Credentials file
 # -------------------------------------------------------------------------------
 if [ -f "$ENV_FILE" ]; then
-    ok "File credenziali gia' presente: $ENV_FILE (non lo tocco)."
+    ok "Credentials file already present: $ENV_FILE (leaving it untouched)."
 else
-    info "Creo il template credenziali in $ENV_FILE ..."
+    info "Creating credentials template at $ENV_FILE ..."
     cat > "$ENV_FILE" << 'ENVEOF'
-# Credenziali Telegram per alertemp.sh
-# Sostituisci con i tuoi valori reali, poi NON committarlo da nessuna parte.
-TELEGRAM_BOT_TOKEN="INSERISCI_IL_TOKEN"
-TELEGRAM_CHAT_ID="INSERISCI_IL_CHAT_ID"
-# Opzionale: soglia di allarme in gradi C (default 80)
+# Telegram credentials for alertemp.sh
+# Replace with your real values, then do NOT commit this file anywhere.
+TELEGRAM_BOT_TOKEN="PUT_YOUR_TOKEN_HERE"
+TELEGRAM_CHAT_ID="PUT_YOUR_CHAT_ID_HERE"
+# Optional: alert threshold in degrees C (default 80)
 #THRESHOLD="80"
 ENVEOF
     chmod 600 "$ENV_FILE"
     chown "$RUN_USER":"$RUN_USER" "$ENV_FILE" 2>/dev/null || true
-    warn "Ricorda di editare $ENV_FILE con token e chat ID reali."
+    warn "Remember to edit $ENV_FILE with your real token and chat ID."
 fi
 
 # -------------------------------------------------------------------------------
-# Unit file: copio e imposto l'utente/percorso scelti
+# Unit files: copy and set the chosen user/path
 # -------------------------------------------------------------------------------
-info "Installo gli unit file in $SYSTEMD_DIR ..."
+info "Installing unit files to $SYSTEMD_DIR ..."
 install -m 0644 "$SERVICE_SRC" "$SYSTEMD_DIR/tempcheck.service"
 install -m 0644 "$TIMER_SRC"   "$SYSTEMD_DIR/tempcheck.timer"
 
-# Allineo User= e ExecStart= al valore scelto (sed in-place sul file installato)
-sed -i -E "s|^User=.*|User=${RUN_USER}|"            "$SYSTEMD_DIR/tempcheck.service"
+# Align User= and ExecStart= to the chosen value (in-place sed on installed file)
+sed -i -E "s|^User=.*|User=${RUN_USER}|"              "$SYSTEMD_DIR/tempcheck.service"
 sed -i -E "s|^ExecStart=.*|ExecStart=${SCRIPT_DEST}|" "$SYSTEMD_DIR/tempcheck.service"
-ok "Unit configurati per utente '$RUN_USER' e script '$SCRIPT_DEST'."
+ok "Units configured for user '$RUN_USER' and script '$SCRIPT_DEST'."
 
 # -------------------------------------------------------------------------------
-# Attivazione
+# Activation
 # -------------------------------------------------------------------------------
-info "Ricarico systemd e abilito il timer..."
+info "Reloading systemd and enabling the timer..."
 systemctl daemon-reload
 systemctl enable --now tempcheck.timer
-ok "Timer attivo."
+ok "Timer active."
 
 echo
-ok "Installazione completata."
-echo "  - Script:       $SCRIPT_DEST"
-echo "  - Credenziali:  $ENV_FILE  (editalo se non l'hai gia' fatto)"
-echo "  - Utente:       $RUN_USER"
+ok "Installation complete."
+echo "  - Script:        $SCRIPT_DEST"
+echo "  - Credentials:   $ENV_FILE  (edit it if you haven't already)"
+echo "  - User:          $RUN_USER"
 echo
-echo "Comandi utili:"
-echo "  systemctl start tempcheck.service     # test immediato"
-echo "  journalctl -u tempcheck.service -n 20 # log"
-echo "  systemctl list-timers tempcheck.timer # prossima esecuzione"
+echo "Useful commands:"
+echo "  systemctl start tempcheck.service     # immediate test"
+echo "  journalctl -u tempcheck.service -n 20 # logs"
+echo "  systemctl list-timers tempcheck.timer # next run"

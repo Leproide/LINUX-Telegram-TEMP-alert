@@ -6,24 +6,24 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 
-# --- Utente che esegue lo script ---
-# Default: root (legge sensori e scrive il file di stato senza problemi).
-# Per usare un utente non privilegiato:
-#   1) cambia User= e Group= qui sotto
-#   2) assicurati che possa leggere 'sensors' (i coretemp di solito lo sono)
-#   3) assicurati che ALERT_FILE stia in una dir scrivibile da quell'utente
+# --- User that runs the script ---
+# Default: root (reads sensors and writes the state file without issues).
+# To use an unprivileged user:
+#   1) change User= and Group= below
+#   2) make sure it can read 'sensors' (coretemp is usually world-readable)
+#   3) make sure ALERT_FILE lives in a directory writable by that user
 User=root
 #Group=root
 
-# Path dello script (deve combaciare con dove lo copi).
+# Path of the script (must match where you copy it).
 ExecStart=/root/alertemp.sh
 
-# Le credenziali vengono lette da /etc/alertemp.env dallo script stesso.
-# In alternativa puoi passarle qui (sconsigliato, finiscono nei log):
+# Credentials are read from /etc/alertemp.env by the script itself.
+# Alternatively you can pass them here (not recommended, they end up in logs):
 #Environment=THRESHOLD=80
 #EnvironmentFile=-/etc/alertemp.env
 
-# Hardening minimo (opzionale, scommenta se vuoi restringere)
+# Minimal hardening (optional, uncomment to restrict)
 #NoNewPrivileges=true
 #ProtectSystem=strict
 #ProtectHome=true

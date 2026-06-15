@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#    alertemp.sh - Alert temperatura CPU via Telegram (per proxmox/linux)
+#    alertemp.sh - CPU temperature alert via Telegram (for proxmox/linux)
 #    Author: https://github.com/Leproide
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -17,41 +17,41 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # -------------------------------------------------------------------------------
-# Configurazione
+# Configuration
 # -------------------------------------------------------------------------------
-# Le credenziali stanno FUORI dallo script cosi' non finiscono su git.
-# Crea /etc/alertemp.env (o ~/.config/alertemp.env) con:
+# Credentials are kept OUTSIDE the script so they don't end up on git.
+# Create /etc/alertemp.env (or ~/.config/alertemp.env) with:
 #   TELEGRAM_BOT_TOKEN="123456:ABC..."
 #   TELEGRAM_CHAT_ID="123456789"
-# e proteggilo:  chmod 600 /etc/alertemp.env
+# and protect it:  chmod 600 /etc/alertemp.env
 CONFIG_FILE="${ALERTEMP_CONFIG:-/etc/alertemp.env}"
 if [ -f "$CONFIG_FILE" ]; then
     # shellcheck source=/dev/null
     . "$CONFIG_FILE"
 fi
 
-# Override possibili anche da variabili d'ambiente (vedi unit file)
+# Can also be overridden via environment variables (see unit file)
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 
-THRESHOLD="${THRESHOLD:-80}"                      # soglia di allarme in gradi C
-SENSOR_LABEL="${SENSOR_LABEL:-Package id 0:}"     # riga di 'sensors' da leggere
-# File di stato (anti-spam). Reso univoco per host cosi' VM/nodi diversi non
-# si pestano lo stesso file se montano /tmp condivisa.
+THRESHOLD="${THRESHOLD:-80}"                      # alert threshold in degrees C
+SENSOR_LABEL="${SENSOR_LABEL:-Package id 0:}"     # 'sensors' line to read
+# State file (anti-spam). Made unique per host so different VMs/nodes don't
+# clobber the same file if they share /tmp.
 ALERT_FILE="${ALERT_FILE:-/tmp/alertemp_$(hostname)_sent}"
 
 API_URL="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
 
 # -------------------------------------------------------------------------------
-# Funzioni
+# Functions
 # -------------------------------------------------------------------------------
 
-# Invia un messaggio Telegram (testo url-encoded, niente markdown: piu' robusto
-# su hostname/testi con caratteri speciali).
+# Send a Telegram message (url-encoded text, no markdown: more robust against
+# hostnames/text containing special characters).
 send_telegram() {
     local message="$1"
     if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-        echo "alertemp: credenziali Telegram mancanti ($CONFIG_FILE)" >&2
+        echo "alertemp: missing Telegram credentials ($CONFIG_FILE)" >&2
         return 1
     fi
     curl -s -o /dev/null --max-time 10 \
@@ -61,8 +61,8 @@ send_telegram() {
         "$API_URL"
 }
 
-# Legge la temperatura del package da 'sensors'. Stampa un intero in gradi C,
-# oppure niente se non disponibile. Gestisce anche valori negativi.
+# Read the package temperature from 'sensors'. Prints an integer in degrees C,
+# or nothing if unavailable. Handles negative values too.
 read_temp() {
     sensors 2>/dev/null \
         | grep -m1 -F "$SENSOR_LABEL" \
@@ -73,28 +73,28 @@ read_temp() {
 }
 
 # -------------------------------------------------------------------------------
-# Main (one-shot: e' il timer systemd a richiamarlo periodicamente)
+# Main (one-shot: the systemd timer invokes it periodically)
 # -------------------------------------------------------------------------------
 temp="$(read_temp)"
 
-# Guardia: senza un intero valido non faccio nulla (evita errori aritmetici
-# quando 'sensors' non risponde o cambia output).
+# Guard: without a valid integer do nothing (avoids arithmetic errors when
+# 'sensors' does not respond or its output changes).
 if ! [[ "$temp" =~ ^-?[0-9]+$ ]]; then
-    echo "alertemp: temperatura non leggibile (label '$SENSOR_LABEL')" >&2
+    echo "alertemp: temperature not readable (label '$SENSOR_LABEL')" >&2
     exit 1
 fi
 
 if (( temp > THRESHOLD )); then
-    # Sopra soglia: invio l'allarme una sola volta
+    # Above threshold: send the alert only once
     if [ ! -f "$ALERT_FILE" ]; then
-        if send_telegram "TEMP ALERT su $(hostname): ${temp} gradi C (soglia ${THRESHOLD})"; then
+        if send_telegram "TEMP ALERT on $(hostname): ${temp} degrees C (threshold ${THRESHOLD})"; then
             touch "$ALERT_FILE"
         fi
     fi
 else
-    # Sotto soglia: notifica di rientro solo se c'era un allarme attivo
+    # Below threshold: send a recovery notice only if an alert was active
     if [ -f "$ALERT_FILE" ]; then
-        if send_telegram "Temperatura rientrata su $(hostname): ${temp} gradi C"; then
+        if send_telegram "Temperature back to normal on $(hostname): ${temp} degrees C"; then
             rm -f "$ALERT_FILE"
         fi
     fi
