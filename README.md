@@ -1,69 +1,69 @@
 # LINUX Telegram TEMP alert
 
-Un semplice sistema di alert sulla temperatura della CPU per **Proxmox / Linux**, con notifiche su **Telegram**. Lo script legge la temperatura del package tramite `lm-sensors` e, al superamento di una soglia, invia un messaggio a un bot Telegram. Una seconda notifica avvisa quando la temperatura rientra sotto la soglia.
+A simple CPU temperature alerting system for **Proxmox / Linux**, with notifications over **Telegram**. The script reads the package temperature via `lm-sensors` and, when a threshold is exceeded, sends a message to a Telegram bot. A second notification is sent when the temperature drops back below the threshold.
 
-L'esecuzione periodica e' gestita da un **timer systemd**, non da un loop interno: lo script viene richiamato a intervalli regolari, fa un singolo controllo e termina.
+Periodic execution is handled by a **systemd timer**, not by an internal loop: the script is invoked at regular intervals, performs a single check, and exits.
 
 ---
 
-## Contenuto del repository
+## Repository contents
 
-| File | Descrizione |
+| File | Description |
 |------|-------------|
-| `alertemp.sh` | Script principale: legge la temperatura e invia gli alert |
-| `tempcheck.service` | Unit systemd (one-shot) che esegue lo script |
-| `tempcheck.timer` | Timer systemd che richiama il service periodicamente |
-| `install.sh` | Installer automatico (dipendenze, file, unit, attivazione) |
+| `alertemp.sh` | Main script: reads the temperature and sends alerts |
+| `tempcheck.service` | systemd unit (one-shot) that runs the script |
+| `tempcheck.timer` | systemd timer that triggers the service periodically |
+| `install.sh` | Automated installer (dependencies, files, units, activation) |
 
 ---
 
-## Requisiti
+## Requirements
 
-- `lm-sensors` (comando `sensors`)
+- `lm-sensors` (the `sensors` command)
 - `curl`
 - `systemd`
-- Un **bot Telegram** e il relativo **chat ID** (vedi sotto)
+- A **Telegram bot** and its **chat ID** (see below)
 
-Su Debian/Ubuntu/Proxmox: `apt install lm-sensors curl`
-Su Fedora: `dnf install lm_sensors curl`
+On Debian/Ubuntu/Proxmox: `apt install lm-sensors curl`
+On Fedora: `dnf install lm_sensors curl`
 
-Se `sensors` non mostra la riga `Package id 0:`, esegui prima `sensors-detect` (rispondendo YES ai default) oppure adatta la variabile `SENSOR_LABEL` nello script al tuo output.
+If `sensors` does not show the `Package id 0:` line, run `sensors-detect` first (answering YES to the defaults), or adjust the `SENSOR_LABEL` variable in the script to match your output.
 
 ---
 
-## Creare il bot Telegram
+## Creating the Telegram bot
 
-1. Su Telegram apri **@BotFather**, crea un bot con `/newbot` e annota il **token**.
-2. Avvia una chat col tuo bot (mandagli un messaggio qualsiasi).
-3. Ricava il tuo **chat ID**: apri
+1. In Telegram open **@BotFather**, create a bot with `/newbot` and note the **token**.
+2. Start a chat with your bot (send it any message).
+3. Get your **chat ID**: open
    `https://api.telegram.org/bot<TOKEN>/getUpdates`
-   e leggi il campo `chat.id`.
+   and read the `chat.id` field.
 
 ---
 
-## Installazione automatica (consigliata)
+## Automated installation (recommended)
 
-Dalla cartella del repository:
+From the repository folder:
 
 ```bash
 sudo ./install.sh
 ```
 
-Per farlo eseguire da un utente diverso da root:
+To run it as a user other than root:
 
 ```bash
 sudo RUN_USER=monitor ./install.sh
 ```
 
-L'installer:
+The installer:
 
-- verifica e installa le dipendenze (`sensors`, `curl`);
-- copia `alertemp.sh` (in `/root/` per root, in `/usr/local/bin/` per altri utenti);
-- crea il template credenziali `/etc/alertemp.env` (permessi `600`);
-- installa e configura gli unit allineando utente e percorso;
-- abilita e avvia il timer.
+- checks and installs the dependencies (`sensors`, `curl`);
+- copies `alertemp.sh` (to `/root/` for root, to `/usr/local/bin/` for other users);
+- creates the credentials template `/etc/alertemp.env` (permissions `600`);
+- installs and configures the units, aligning user and path;
+- enables and starts the timer.
 
-Dopo l'installazione, **edita le credenziali**:
+After installation, **edit the credentials**:
 
 ```bash
 sudo nano /etc/alertemp.env
@@ -71,20 +71,20 @@ sudo nano /etc/alertemp.env
 
 ---
 
-## Installazione manuale
+## Manual installation
 
 ```bash
 # 1. Script
 sudo cp alertemp.sh /root/ && sudo chmod +x /root/alertemp.sh
 
-# 2. Credenziali (fuori dallo script, NON committarle)
+# 2. Credentials (kept outside the script, do NOT commit them)
 sudo tee /etc/alertemp.env > /dev/null << 'ENVEOF'
 TELEGRAM_BOT_TOKEN="123456:ABC..."
 TELEGRAM_CHAT_ID="123456789"
 ENVEOF
 sudo chmod 600 /etc/alertemp.env
 
-# 3. Unit systemd
+# 3. systemd units
 sudo cp tempcheck.service tempcheck.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now tempcheck.timer
@@ -92,19 +92,19 @@ sudo systemctl enable --now tempcheck.timer
 
 ---
 
-## Configurazione
+## Configuration
 
-Le variabili si impostano in `/etc/alertemp.env` (o come `Environment=` nel service):
+Variables are set in `/etc/alertemp.env` (or as `Environment=` in the service):
 
-| Variabile | Default | Descrizione |
-|-----------|---------|-------------|
-| `TELEGRAM_BOT_TOKEN` | — | Token del bot (obbligatorio) |
-| `TELEGRAM_CHAT_ID` | — | Chat ID di destinazione (obbligatorio) |
-| `THRESHOLD` | `80` | Soglia di allarme in gradi C |
-| `SENSOR_LABEL` | `Package id 0:` | Riga di `sensors` da leggere |
-| `ALERT_FILE` | `/tmp/alertemp_<host>_sent` | File di stato anti-spam |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TELEGRAM_BOT_TOKEN` | — | Bot token (required) |
+| `TELEGRAM_CHAT_ID` | — | Destination chat ID (required) |
+| `THRESHOLD` | `80` | Alert threshold in degrees C |
+| `SENSOR_LABEL` | `Package id 0:` | Line of `sensors` to read |
+| `ALERT_FILE` | `/tmp/alertemp_<host>_sent` | Anti-spam state file |
 
-L'intervallo di controllo si regola nel `tempcheck.timer` (default: ogni 30 s):
+The check interval is set in `tempcheck.timer` (default: every 30 s):
 
 ```ini
 [Timer]
@@ -113,38 +113,38 @@ OnUnitActiveSec=30
 AccuracySec=5s
 ```
 
-> Nota: evita `AccuracySec` molto bassi (es. `1ms`): impediscono a systemd di accorpare i wakeup e tengono la CPU sveglia di continuo, controproducente su una macchina che stai monitorando per il calore. Per un alert di temperatura, 30-60 s sono piu' che adeguati.
+> Note: avoid very low `AccuracySec` values (e.g. `1ms`): they prevent systemd from coalescing wakeups and keep the CPU awake continuously, which is counterproductive on a machine you are monitoring for heat. For a temperature alert, 30-60 s is more than adequate.
 
 ---
 
-## Verifica e gestione
+## Verification and management
 
 ```bash
-systemctl start tempcheck.service        # esecuzione di test immediata
-journalctl -u tempcheck.service -n 20    # log
-systemctl list-timers tempcheck.timer    # prossima esecuzione
+systemctl start tempcheck.service        # immediate test run
+journalctl -u tempcheck.service -n 20    # logs
+systemctl list-timers tempcheck.timer    # next run
 ```
 
-Lo script invia l'alert una sola volta al superamento della soglia (tramite il file di stato) e un messaggio di rientro quando la temperatura ritorna sotto soglia.
+The script sends the alert only once when the threshold is exceeded (using the state file) and a recovery message when the temperature returns below the threshold.
 
 ---
 
-## Note
+## Notes
 
-- Le credenziali NON vanno inserite nello script ne' committate: tienile in `/etc/alertemp.env` con permessi `600`.
-- I sensori `coretemp` sono in genere leggibili da qualsiasi utente; se usi un utente non privilegiato, assicurati che possa scrivere `ALERT_FILE`.
+- Credentials must NOT be placed in the script or committed: keep them in `/etc/alertemp.env` with `600` permissions.
+- `coretemp` sensors are generally readable by any user; if you use an unprivileged user, make sure it can write `ALERT_FILE`.
 
 ---
 
 ## License
 
-Questo progetto e' rilasciato sotto licenza **GNU General Public License v3.0
-(GPL-3.0)**. Sei libero di usarlo, studiarlo, modificarlo e ridistribuirlo nei
-termini della licenza, fornito SENZA ALCUNA GARANZIA. Vedi il file
-[`LICENSE`](LICENSE) o <https://www.gnu.org/licenses/gpl-3.0.html>.
+This project is released under the **GNU General Public License v3.0
+(GPL-3.0)**. You are free to use, study, modify and redistribute it under the
+terms of the license, provided WITHOUT ANY WARRANTY. See the
+[`LICENSE`](LICENSE) file or <https://www.gnu.org/licenses/gpl-3.0.html>.
 
-> Nota di coerenza: assicurati che il file `LICENSE` del repository sia GPL-3.0,
-> per allinearlo agli header presenti nei sorgenti.
+> Consistency note: make sure the repository `LICENSE` file is GPL-3.0,
+> to align it with the headers present in the sources.
 
 ## Author
 
