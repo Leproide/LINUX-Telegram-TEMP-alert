@@ -1,4 +1,30 @@
 [Unit]
-Description=Check temperature and notify
+Description=Check temperature and notify via Telegram
+After=network-online.target
+Wants=network-online.target
+
 [Service]
+Type=oneshot
+
+# --- Utente che esegue lo script ---
+# Default: root (legge sensori e scrive il file di stato senza problemi).
+# Per usare un utente non privilegiato:
+#   1) cambia User= e Group= qui sotto
+#   2) assicurati che possa leggere 'sensors' (i coretemp di solito lo sono)
+#   3) assicurati che ALERT_FILE stia in una dir scrivibile da quell'utente
+User=root
+#Group=root
+
+# Path dello script (deve combaciare con dove lo copi).
 ExecStart=/root/alertemp.sh
+
+# Le credenziali vengono lette da /etc/alertemp.env dallo script stesso.
+# In alternativa puoi passarle qui (sconsigliato, finiscono nei log):
+#Environment=THRESHOLD=80
+#EnvironmentFile=-/etc/alertemp.env
+
+# Hardening minimo (opzionale, scommenta se vuoi restringere)
+#NoNewPrivileges=true
+#ProtectSystem=strict
+#ProtectHome=true
+#ReadWritePaths=/tmp

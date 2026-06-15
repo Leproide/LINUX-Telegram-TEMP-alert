@@ -1,8 +1,15 @@
 [Unit]
-Description=Check temperature every 5 second
+Description=Run temperature check periodically
+
 [Timer]
-OnBootSec=5
-OnUnitActiveSec=5
-AccuracySec=1ms
+# Primo avvio 30s dopo il boot, poi ogni 30s.
+OnBootSec=30
+OnUnitActiveSec=30
+# Niente AccuracySec=1ms: lasciare a systemd un minimo di margine evita
+# wakeup continui della CPU. 5s di tolleranza vanno benissimo per un alert.
+AccuracySec=5s
+# Recupera un'esecuzione persa se il sistema era spento/sospeso.
+Persistent=true
+
 [Install]
 WantedBy=timers.target
